@@ -177,7 +177,7 @@ export class ConversationService {
       if (!similarChunks.length || similarChunks.length < 1) {
         return '';
       } else {
-        return `资料:` + similarChunks.join('\n');
+        return `资料:` + similarChunks.map((item) => item.content).join('\n');
       }
     } catch (error) {
       console.error(error);

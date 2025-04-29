@@ -1,0 +1,135 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+enum UserStatus {
+  Normal
+  Unqualified
+  Abnormal
+  Suspended
+}
+
+model User {
+  id            Int            @id @unique @default(autoincrement())
+  name          String         @default("")
+  username      String         @unique
+  email         String         @unique
+  password      String
+  role          Role?          @relation(fields: [roleId], references: [id])
+  roleId        Int
+  conversations Conversation[]
+  status        UserStatus     @default(Unqualified)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  Message       Message[]
+}
+
+model Role {
+  id          Int          @id @unique @default(autoincrement())
+  name        String       @unique
+  user        User[]
+  routes      Route[]
+  permissions Permission[]
+  description String       @default("")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @default(now()) @updatedAt
+}
+
+model Route {
+  id   Int    @id @unique @default(autoincrement())
+  name String @unique
+  Role Role[]
+}
+
+enum PermissionType {
+  Api
+  Button
+}
+
+model Permission {
+  id   Int            @id @unique @default(autoincrement())
+  name String         @unique
+  type PermissionType
+  role Role[]
+}
+
+model Conversation {
+  id        String     @id @unique @default(uuid())
+  title     String     @db.Text
+  user      User       @relation(fields: [userId], references: [id])
+  userId    Int
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  messages  Message[]
+  documents Document[]
+  isDeleted Boolean    @default(false)
+}
+
+model Document {
+  id             String          @id @unique @default(uuid())
+  name           String
+  fileUrl        String
+  mimeType       String?
+  size           Int?
+  conversationId String?
+  conversation   Conversation?   @relation(fields: [conversationId], references: [id])
+  createdAt      DateTime        @default(now())
+  chunks         DocumentChunk[]
+}
+
+model DocumentChunk {
+  id         String                       @id @unique @default(uuid())
+  content    String // 纯文本段落
+  embedding  Unsupported("vector(1024)")? // 存储本地向量（如用 pgvector）
+  vectorId   String? // 外部向量数据库的ID（如 Pinecone, Weaviate）
+  documentId String
+  document   Document                     @relation(fields: [documentId], references: [id])
+  index      Int // 顺序索引
+  Citation   Citation[]
+}
+
+enum MessageRole {
+  User
+  Ai
+}
+
+model Message {
+  id                String       @id @unique @default(uuid())
+  reasoning_content String       @default("") @db.Text
+  content           String
+  role              MessageRole // 用户、系统、AI
+  conversationId    String
+  conversation      Conversation @relation(fields: [conversationId], references: [id])
+  senderId          Int?
+  sender            User?        @relation(fields: [senderId], references: [id])
+  createdAt         DateTime     @default(now())
+  citations         Citation[] // 可选：关联引用的 chunk
+}
+
+model Citation {
+  id        String        @id @default(uuid())
+  chunkId   String
+  chunk     DocumentChunk @relation(fields: [chunkId], references: [id])
+  messageId String
+  message   Message       @relation(fields: [messageId], references: [id])
+  relevance Float?
+}
+
+model Website {
+  id        Int      @id @unique @default(autoincrement())
+  viewCount Int      @default(0)
+  createdAt DateTime
+}
